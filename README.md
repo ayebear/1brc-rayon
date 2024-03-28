@@ -1,6 +1,6 @@
 # 1brc
 
-Simple solution to 1brc in rust with rayon.
+Simple solution to [1brc](https://www.morling.dev/blog/one-billion-row-challenge/) in rust with rayon.
 
 ## To run
 
