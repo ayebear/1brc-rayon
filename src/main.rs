@@ -40,11 +40,11 @@ impl Station {
         }
     }
 
-    fn add_value(&mut self, value: f32) {
-        self.min = self.min.min(value);
-        self.max = self.max.max(value);
-        self.total += value;
-        self.count += 1;
+    fn add_station(&mut self, other: Self) {
+        self.min = self.min.min(other.min);
+        self.max = self.max.max(other.max);
+        self.total += other.total;
+        self.count += other.count;
     }
 }
 
@@ -56,16 +56,21 @@ struct Stations {
 impl Stations {
     fn insert_line(mut self, line: Line) -> Self {
         let (name, value) = line;
+        let station = Station::from_value(value);
         self.map
             .entry(name)
-            .and_modify(|e| e.add_value(value))
-            .or_insert_with(|| Station::from_value(value));
+            .and_modify(|e| e.add_station(station))
+            .or_insert(station);
         self
     }
 
     fn merge(mut self, other: Self) -> Self {
-        // TODO: Actually merge
-        self.map.par_extend(other.map);
+        for (name, station) in other.map {
+            self.map
+                .entry(name)
+                .and_modify(|e| e.add_station(station))
+                .or_insert(station);
+        }
         self
     }
 }
