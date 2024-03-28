@@ -1,6 +1,6 @@
 use anyhow::Result;
 use rayon::prelude::*;
-use std::fs;
+use std::{collections::BTreeMap, fs};
 
 fn main() -> Result<()> {
     let data = fs::read_to_string("measurements.txt")?;
@@ -8,10 +8,8 @@ fn main() -> Result<()> {
     let results = data
         .par_lines()
         .flat_map(parse_line)
-        .fold(Station::default, |a: Station, b: Line| {
-            a.merge(Station::from_line(b))
-        })
-        .reduce(Station::default, |a, b| a.merge(b));
+        .fold(Stations::default, Stations::insert_line)
+        .reduce(Stations::default, Stations::merge);
     println!("{results:?}");
     Ok(())
 }
@@ -33,9 +31,7 @@ struct Station {
 }
 
 impl Station {
-    fn from_line(line: Line) -> Self {
-        // todo: deal with name
-        let (_name, value) = line;
+    fn from_value(value: f32) -> Self {
         Self {
             min: value,
             max: value,
@@ -44,18 +40,32 @@ impl Station {
         }
     }
 
-    fn merge(self, other: Self) -> Self {
-        if self.count == 0 {
-            return other;
-        }
-        if other.count == 0 {
-            return self;
-        }
-        Self {
-            min: self.min.min(other.min),
-            max: self.max.max(other.max),
-            total: self.total + other.total,
-            count: self.count + other.count,
-        }
+    fn add_value(&mut self, value: f32) {
+        self.min = self.min.min(value);
+        self.max = self.max.max(value);
+        self.total += value;
+        self.count += 1;
+    }
+}
+
+#[derive(Default, Clone, Debug)]
+struct Stations {
+    map: BTreeMap<String, Station>,
+}
+
+impl Stations {
+    fn insert_line(mut self, line: Line) -> Self {
+        let (name, value) = line;
+        self.map
+            .entry(name)
+            .and_modify(|e| e.add_value(value))
+            .or_insert_with(|| Station::from_value(value));
+        self
+    }
+
+    fn merge(mut self, other: Self) -> Self {
+        // TODO: Actually merge
+        self.map.par_extend(other.map);
+        self
     }
 }
